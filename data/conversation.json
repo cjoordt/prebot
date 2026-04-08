@@ -1,0 +1,47 @@
+[
+  {
+    "timestamp": "2026-04-08T23:02:46.130730+00:00",
+    "role": "user",
+    "content": "Hello pre"
+  },
+  {
+    "timestamp": "2026-04-08T23:06:52.489693+00:00",
+    "role": "user",
+    "content": "Hey there"
+  },
+  {
+    "timestamp": "2026-04-08T23:08:06.803560+00:00",
+    "role": "user",
+    "content": "Hello"
+  },
+  {
+    "timestamp": "2026-04-08T23:10:02.599383+00:00",
+    "role": "user",
+    "content": "Hello pre"
+  },
+  {
+    "timestamp": "2026-04-08T23:10:59.211173+00:00",
+    "role": "user",
+    "content": "Hello pre"
+  },
+  {
+    "timestamp": "2026-04-08T23:11:29.951957+00:00",
+    "role": "user",
+    "content": "Hello"
+  },
+  {
+    "timestamp": "2026-04-08T23:15:27.039167+00:00",
+    "role": "user",
+    "content": "Hello"
+  },
+  {
+    "timestamp": "2026-04-08T23:16:59.643674+00:00",
+    "role": "user",
+    "content": "Hello"
+  },
+  {
+    "timestamp": "2026-04-08T23:17:04.636202+00:00",
+    "role": "assistant",
+    "content": "Hey \u2014 looks like we're just getting started here.\n\nNo plan on the books yet, and nothing logged today. Let's fix that.\n\nWhat's your week looking like for training availability? I see you're open today and the weekend, but afternoons are packed Thu-Fri and Mon-Tue."
+  }
+]

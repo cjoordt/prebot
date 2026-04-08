@@ -1,0 +1,23 @@
+[build]
+builder = "NIXPACKS"
+
+[build.nixpacksPlan.phases.setup]
+nixPkgs = ["python311"]
+
+[deploy]
+startCommand = "python main.py"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5
+
+# Environment variables to set in Railway dashboard:
+#   TELEGRAM_BOT_TOKEN
+#   TELEGRAM_CHAT_ID
+#   ANTHROPIC_API_KEY
+#   STRAVA_CLIENT_ID
+#   STRAVA_CLIENT_SECRET
+#   STRAVA_REFRESH_TOKEN
+#   GOOGLE_CALENDAR_IDS      ← comma-separated: "primary,familyid@group.calendar.google.com"
+#   GOOGLE_TOKEN_JSON        ← paste the contents of token.json (generated locally first)
+#
+# GOOGLE_CALENDAR_CREDENTIALS_PATH is not needed on Railway —
+# token refresh uses GOOGLE_TOKEN_JSON directly.

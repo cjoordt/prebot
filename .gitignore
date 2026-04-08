@@ -1,0 +1,10 @@
+.env
+credentials.json
+token.json
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+.DS_Store
+data/strava_cache.json
+data/state.json
