@@ -25,6 +25,7 @@ from integrations.calendar import fetch_week_schedule
 from tools.fatigue import calculate_fatigue
 from tools.parser import parse_checkin_reply, get_todays_log
 from tools.planner import load_plan, adjust_plan, format_plan_for_telegram
+from integrations.health import get_todays_health, get_recent_health
 
 load_dotenv()
 
@@ -65,6 +66,29 @@ def _format_plan_summary(plan: dict | None) -> str:
         lines.append(line)
 
     return "\n".join(lines)
+
+
+def _format_health(today: dict | None, recent: list[dict]) -> str:
+    if not today and not recent:
+        return "  No health data logged yet."
+    lines = []
+    if today:
+        weight = today.get("weight_lbs")
+        sleep = today.get("sleep_hours")
+        parts = []
+        if weight:
+            parts.append(f"{weight}lbs")
+        if sleep:
+            parts.append(f"{sleep}hrs sleep")
+        lines.append(f"  Today: {' | '.join(parts)}" if parts else "  Today: no data")
+    if recent:
+        weights = [e["weight_lbs"] for e in recent if e.get("weight_lbs")]
+        sleeps = [e["sleep_hours"] for e in recent if e.get("sleep_hours")]
+        if weights:
+            lines.append(f"  7-day avg weight: {sum(weights)/len(weights):.1f}lbs")
+        if sleeps:
+            lines.append(f"  7-day avg sleep: {sum(sleeps)/len(sleeps):.1f}hrs")
+    return "\n".join(lines) if lines else "  No health data logged yet."
 
 
 def _format_recent_activities(activities: list[dict]) -> str:
@@ -131,6 +155,8 @@ def build_context_block() -> str:
 
     fatigue = calculate_fatigue(recent_activities)
     plan = load_plan()
+    todays_health = get_todays_health()
+    recent_health = get_recent_health(days=7)
 
     return (
         "---\n"
@@ -139,6 +165,7 @@ def build_context_block() -> str:
         f"**Fatigue:**\n"
         f"  ATL: {fatigue['atl']} | CTL: {fatigue['ctl']} | "
         f"Form: {fatigue['form']} → {fatigue['recommendation']}\n\n"
+        f"**Today's health data:**\n{_format_health(todays_health, recent_health)}\n\n"
         f"**Today's activity:**\n{_format_todays_strava(today_activities)}\n\n"
         f"**Recent runs (last 6 weeks):**\n{_format_recent_activities(recent_activities)}\n\n"
         f"**Calendar this week:**\n{_format_calendar_summary(schedule)}\n\n"
