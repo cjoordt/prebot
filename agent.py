@@ -67,6 +67,22 @@ def _format_plan_summary(plan: dict | None) -> str:
     return "\n".join(lines)
 
 
+def _format_recent_activities(activities: list[dict]) -> str:
+    if not activities:
+        return "  No recent runs found."
+    lines = []
+    for act in activities[-20:]:
+        sport = act.get("effort", "")
+        lines.append(
+            f"  {act['date']} — {act['distance_miles']:.1f}mi | {sport}"
+            + (f" | {act.get('elevation_gain_meters', 0):.0f}m gain" if act.get('elevation_gain_meters') else "")
+            + (f" | HR {act['average_heartrate']:.0f}" if act.get("average_heartrate") else "")
+        )
+    total_miles = sum(a["distance_miles"] for a in activities)
+    lines.append(f"  Total ({len(activities)} runs): {total_miles:.1f}mi")
+    return "\n".join(lines)
+
+
 def _format_todays_strava(activities: list[dict]) -> str:
     if not activities:
         return "No activity logged today."
@@ -124,6 +140,7 @@ def build_context_block() -> str:
         f"  ATL: {fatigue['atl']} | CTL: {fatigue['ctl']} | "
         f"Form: {fatigue['form']} → {fatigue['recommendation']}\n\n"
         f"**Today's activity:**\n{_format_todays_strava(today_activities)}\n\n"
+        f"**Recent runs (last 6 weeks):**\n{_format_recent_activities(recent_activities)}\n\n"
         f"**Calendar this week:**\n{_format_calendar_summary(schedule)}\n\n"
         f"**Training plan:**\n{_format_plan_summary(plan)}\n"
         "---"
