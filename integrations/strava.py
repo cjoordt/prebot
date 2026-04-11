@@ -191,8 +191,9 @@ def fetch_recent_activities(weeks: int = 4, force_refresh: bool = False) -> list
             break
 
         for act in page_data:
-            # Only include runs (type "Run" or sport_type "Run")
-            if act.get("sport_type", act.get("type", "")) != "Run":
+            # Include all run variants (Run, TrailRun, VirtualRun, Treadmill)
+            sport = act.get("sport_type", act.get("type", ""))
+            if sport not in ("Run", "TrailRun", "VirtualRun", "Treadmill"):
                 continue
 
             effort = classify_effort(act)
