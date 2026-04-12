@@ -25,21 +25,56 @@ TIMEZONE = "America/Los_Angeles"
 # ---------------------------------------------------------------------------
 
 async def job_weekly_plan() -> None:
-    """Sunday 7pm — Pull Strava + Calendar, generate and send the weekly plan."""
+    """Sunday 7pm — Write weekly memo, update profile if due, generate and send the next week's plan."""
     logger.info("Running job: weekly plan generation")
     try:
         from integrations.strava import fetch_recent_activities
         from integrations.calendar import fetch_week_schedule
+        from integrations.health import get_recent_health
         from tools.fatigue import calculate_fatigue
-        from tools.planner import generate_weekly_plan, format_plan_for_telegram
+        from tools.planner import generate_weekly_plan, format_plan_for_telegram, load_plan
+        from tools.parser import load_log
+        from tools.memory import (
+            generate_weekly_memo, update_athlete_profile,
+            load_memos, format_recent_memos_for_context,
+        )
         from bot import send_message
 
         activities = fetch_recent_activities(weeks=6, force_refresh=True)
         fatigue = calculate_fatigue(activities)
         schedule = fetch_week_schedule(days=7)
+        plan = load_plan()
+        activity_log = load_log()
+        health_log = get_recent_health(days=7)
 
-        plan = generate_weekly_plan(fatigue, schedule, activities)
-        text = format_plan_for_telegram(plan)
+        # --- Write this week's coaching memo ---
+        from datetime import date, timedelta
+        last_monday = (date.today() - timedelta(days=date.today().weekday())).strftime("%Y-%m-%d")
+        try:
+            generate_weekly_memo(
+                week_of=last_monday,
+                activities=[a for a in activities if a["date"] >= last_monday],
+                activity_log=[e for e in activity_log if e.get("date", "") >= last_monday],
+                health_log=health_log,
+                plan=plan,
+                fatigue=fatigue,
+            )
+            logger.info("Weekly memo written.")
+        except Exception as e:
+            logger.warning(f"Memo generation failed (non-fatal): {e}")
+
+        # --- Update athlete profile every 4 weeks (when there are enough memos) ---
+        all_memos = load_memos()
+        if len(all_memos) > 0 and len(all_memos) % 4 == 0:
+            try:
+                update_athlete_profile(activities, activity_log, health_log, all_memos)
+                logger.info("Athlete profile updated.")
+            except Exception as e:
+                logger.warning(f"Profile update failed (non-fatal): {e}")
+
+        # --- Generate next week's plan ---
+        new_plan = generate_weekly_plan(fatigue, schedule, activities)
+        text = format_plan_for_telegram(new_plan)
 
         await send_message(text)
         logger.info("Weekly plan sent.")

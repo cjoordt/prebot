@@ -26,6 +26,7 @@ from tools.fatigue import calculate_fatigue
 from tools.parser import parse_checkin_reply, get_todays_log
 from tools.planner import load_plan, adjust_plan, format_plan_for_telegram
 from integrations.health import get_todays_health, get_recent_health
+from tools.memory import format_profile_for_context, format_recent_memos_for_context
 
 load_dotenv()
 
@@ -162,6 +163,8 @@ def build_context_block() -> str:
         "---\n"
         "## Live Context (updated each message)\n\n"
         f"**Date:** {datetime.now().strftime('%A, %B %d %Y')}\n\n"
+        f"**Athlete profile:**\n{format_profile_for_context()}\n\n"
+        f"**Recent weekly memos:**\n{format_recent_memos_for_context()}\n\n"
         f"**Fatigue:**\n"
         f"  ATL: {fatigue['atl']} | CTL: {fatigue['ctl']} | "
         f"Form: {fatigue['form']} → {fatigue['recommendation']}\n\n"
