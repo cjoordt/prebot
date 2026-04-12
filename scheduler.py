@@ -4,13 +4,13 @@ scheduler.py — APScheduler cron jobs for Ultra Coach
 Jobs:
   1. Sunday 7pm Pacific   — Generate weekly training plan
   2. Daily 9pm Pacific    — Evening check-in
-  3. Daily 11am Pacific   — Morning Strava check
+  3. Daily 11am Pacific   — Morning Strava check + weather nudge + post-race check
   4. Daily 7pm Pacific    — Evening Strava check (triggers missed workout if needed)
 """
 
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -31,9 +31,11 @@ async def job_weekly_plan() -> None:
         from integrations.strava import fetch_recent_activities
         from integrations.calendar import fetch_week_schedule
         from integrations.health import get_recent_health
+        from integrations.weather import get_week_weather_forecast
         from tools.fatigue import calculate_fatigue
         from tools.planner import generate_weekly_plan, format_plan_for_telegram, load_plan
         from tools.parser import load_log
+        from tools.races import get_phase_context
         from tools.memory import (
             generate_weekly_memo, update_athlete_profile,
             load_memos, format_recent_memos_for_context,
@@ -46,10 +48,21 @@ async def job_weekly_plan() -> None:
         plan = load_plan()
         activity_log = load_log()
         health_log = get_recent_health(days=7)
+        phase_ctx = get_phase_context()
+        weather_forecast = get_week_weather_forecast()
 
         # --- Write this week's coaching memo ---
-        from datetime import date, timedelta
+        from datetime import date
         last_monday = (date.today() - timedelta(days=date.today().weekday())).strftime("%Y-%m-%d")
+
+        # Compute weekly vert for the memo
+        week_vert_ft = int(
+            sum(a.get("elevation_gain_meters", 0) for a in activities if a.get("date", "") >= last_monday)
+            * 3.28084
+        )
+        from tools.races import compute_vert_target
+        vert_target = compute_vert_target(phase_ctx)
+
         try:
             generate_weekly_memo(
                 week_of=last_monday,
@@ -58,12 +71,15 @@ async def job_weekly_plan() -> None:
                 health_log=health_log,
                 plan=plan,
                 fatigue=fatigue,
+                phase_context=phase_ctx,
+                weekly_vert_ft=week_vert_ft,
+                vert_target_ft=vert_target,
             )
             logger.info("Weekly memo written.")
         except Exception as e:
             logger.warning(f"Memo generation failed (non-fatal): {e}")
 
-        # --- Update athlete profile every 4 weeks (when there are enough memos) ---
+        # --- Update athlete profile every 4 weeks ---
         all_memos = load_memos()
         if len(all_memos) > 0 and len(all_memos) % 4 == 0:
             try:
@@ -73,7 +89,7 @@ async def job_weekly_plan() -> None:
                 logger.warning(f"Profile update failed (non-fatal): {e}")
 
         # --- Generate next week's plan ---
-        new_plan = generate_weekly_plan(fatigue, schedule, activities)
+        new_plan = generate_weekly_plan(fatigue, schedule, activities, phase_ctx, weather_forecast)
         text = format_plan_for_telegram(new_plan)
 
         await send_message(text)
@@ -160,8 +176,62 @@ async def job_strava_check(trigger_missed_if_no_activity: bool = False) -> None:
 
 
 async def job_morning_strava_check() -> None:
-    """Daily 11am — Check for morning runs, no missed-workout trigger."""
+    """Daily 11am — Check for morning runs, weather nudge, post-race check."""
     await job_strava_check(trigger_missed_if_no_activity=False)
+
+    # --- Weather nudge ---
+    try:
+        from integrations.weather import fetch_today_weather, get_weather_nudge, is_dangerous_weather
+        from tools.planner import load_plan
+        from bot import send_message, append_message
+
+        today_key = datetime.now().strftime("%a").lower()[:3]
+        plan = load_plan()
+        today_plan = plan.get("days", {}).get(today_key, {}) if plan else {}
+        planned_type = today_plan.get("type", "rest")
+
+        # Only send a weather nudge if a run is planned for today
+        if planned_type not in ("rest", "recovery"):
+            weather = fetch_today_weather()
+            if weather:
+                nudge = get_weather_nudge(weather)
+                if nudge:
+                    if is_dangerous_weather(weather):
+                        note = (
+                            f"Weather alert: {nudge}. "
+                            f"Consider swapping today's {planned_type} to tomorrow "
+                            "or moving to the treadmill."
+                        )
+                    else:
+                        note = f"Weather today: {nudge}"
+                    await send_message(note)
+                    append_message(role="assistant", content=note)
+    except Exception as e:
+        logger.warning(f"Weather nudge failed (non-fatal): {e}")
+
+    # --- Post-race follow-up check ---
+    try:
+        from tools.races import load_races
+        from agent import run_post_race_checkin
+        from bot import send_message
+        from state import set_flow, get_flow, FLOW_RACE_RESULT, FLOW_FREEFORM
+
+        today = datetime.now().strftime("%Y-%m-%d")
+        yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+
+        races = load_races()
+        for race in races:
+            race_date = race.get("date", "")
+            has_result = "result" in race
+            # Ask within 2 days of race date if no result logged yet
+            if race_date in (today, yesterday) and not has_result:
+                if get_flow() == FLOW_FREEFORM:
+                    message = await run_post_race_checkin(race)
+                    await send_message(message)
+                    set_flow(FLOW_RACE_RESULT, context={"race_name": race["name"]})
+                    break
+    except Exception as e:
+        logger.warning(f"Post-race check failed (non-fatal): {e}")
 
 
 async def job_evening_strava_check() -> None:
@@ -195,7 +265,7 @@ def create_scheduler() -> AsyncIOScheduler:
         misfire_grace_time=300,
     )
 
-    # 3. Daily 11am — Morning Strava check
+    # 3. Daily 11am — Morning Strava check + weather + post-race
     scheduler.add_job(
         job_morning_strava_check,
         CronTrigger(hour=11, minute=0, timezone=TIMEZONE),

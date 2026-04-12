@@ -25,6 +25,7 @@ FLOW_FREEFORM = "freeform"
 FLOW_CHECKIN_REPLY = "checkin_reply"
 FLOW_MISSED_WORKOUT_REPLY = "missed_workout_reply"
 FLOW_POST_ACTIVITY_REPLY = "post_activity_reply"
+FLOW_RACE_RESULT = "race_result"
 
 
 def _load() -> dict:

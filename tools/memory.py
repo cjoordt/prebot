@@ -101,6 +101,9 @@ def generate_weekly_memo(
     health_log: list[dict],
     plan: dict | None,
     fatigue: dict,
+    phase_context: dict | None = None,
+    weekly_vert_ft: int = 0,
+    vert_target_ft: int = 0,
 ) -> str:
     """
     Ask Claude to write a 150-word coaching memo summarizing the past week.
@@ -128,13 +131,30 @@ def generate_weekly_memo(
 
     planned = json.dumps(plan.get("days", {}) if plan else {}, indent=2)
 
+    phase = (phase_context or {}).get("phase", "unknown")
+    race_name = (phase_context or {}).get("race_name") or "no race registered"
+    weeks_to_race = (phase_context or {}).get("weeks_to_race")
+    phase_line = (
+        f"Phase: {phase} | {weeks_to_race:.0f} weeks to {race_name}"
+        if weeks_to_race is not None
+        else f"Phase: {phase}"
+    )
+    vert_line = (
+        f"Weekly vert: {weekly_vert_ft:,}ft actual / {vert_target_ft:,}ft target"
+        if vert_target_ft
+        else f"Weekly vert: {weekly_vert_ft:,}ft"
+    )
+
     prompt = (
         "You are an elite ultramarathon coach writing a weekly coaching memo for your athlete file. "
         "This memo will be included in every future conversation to give you persistent memory of the athlete's history.\n\n"
         "Write a memo of exactly 150 words or less. Be specific and factual. "
         "Focus on: what actually happened vs what was planned, how the athlete felt, "
+        "vertical gain adherence vs target, current training phase progression, "
         "any patterns emerging, what to watch for next week, and one key takeaway.\n\n"
-        f"Week of: {week_of}\n\n"
+        f"Week of: {week_of}\n"
+        f"{phase_line}\n"
+        f"{vert_line}\n\n"
         f"Planned workouts:\n{planned}\n\n"
         f"Actual Strava activities:\n{activity_summary}\n\n"
         f"Evening check-in data:\n{checkin_summary}\n\n"
@@ -182,7 +202,9 @@ def update_athlete_profile(
         "Based on all available data, write an updated athlete profile of 250 words or less.\n\n"
         "The profile should capture: training patterns and tendencies, life factors that consistently "
         "affect training, strengths, areas to watch, injury history (if any), what motivates this athlete, "
-        "what derails them, and any other patterns a coach should always remember.\n\n"
+        "what derails them, vertical gain capacity and trends (are they hitting vert targets? "
+        "seeking hilly routes or avoiding them?), phase transitions they've navigated, "
+        "and any other patterns a coach should always remember.\n\n"
         "Write it as a coach's notes — specific, honest, useful for future planning. "
         "No headers, flowing prose.\n\n"
         f"Current profile:\n{existing_profile}\n\n"
