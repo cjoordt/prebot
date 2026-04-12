@@ -10,7 +10,9 @@ Jobs:
 
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
+
+from utils import local_now
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -52,8 +54,8 @@ async def job_weekly_plan() -> None:
         weather_forecast = get_week_weather_forecast()
 
         # --- Write this week's coaching memo ---
-        from datetime import date
-        last_monday = (date.today() - timedelta(days=date.today().weekday())).strftime("%Y-%m-%d")
+        today_date = local_now().date()
+        last_monday = (today_date - timedelta(days=today_date.weekday())).strftime("%Y-%m-%d")
 
         # Compute weekly vert for the memo
         week_vert_ft = int(
@@ -129,7 +131,7 @@ async def job_strava_check(trigger_missed_if_no_activity: bool = False) -> None:
         from bot import send_message, append_message
 
         today_activities = get_today_activities()
-        today_key = datetime.now().strftime("%a").lower()[:3]
+        today_key = local_now().strftime("%a").lower()[:3]
         plan = load_plan()
         today_plan = plan.get("days", {}).get(today_key, {}) if plan else {}
         planned_type = today_plan.get("type", "rest")
@@ -185,7 +187,7 @@ async def job_morning_strava_check() -> None:
         from tools.planner import load_plan
         from bot import send_message, append_message
 
-        today_key = datetime.now().strftime("%a").lower()[:3]
+        today_key = local_now().strftime("%a").lower()[:3]
         plan = load_plan()
         today_plan = plan.get("days", {}).get(today_key, {}) if plan else {}
         planned_type = today_plan.get("type", "rest")
@@ -216,8 +218,8 @@ async def job_morning_strava_check() -> None:
         from bot import send_message
         from state import set_flow, get_flow, FLOW_RACE_RESULT, FLOW_FREEFORM
 
-        today = datetime.now().strftime("%Y-%m-%d")
-        yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+        today = local_now().strftime("%Y-%m-%d")
+        yesterday = (local_now() - timedelta(days=1)).strftime("%Y-%m-%d")
 
         races = load_races()
         for race in races:

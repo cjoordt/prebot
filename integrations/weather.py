@@ -85,7 +85,8 @@ def fetch_today_weather() -> dict:
     Returns empty dict on failure (non-fatal).
     """
     cache = _load_cache()
-    today = datetime.now().strftime("%Y-%m-%d")
+    from utils import local_now
+    today = local_now().strftime("%Y-%m-%d")
 
     # Return from cache if fresh enough
     if cache.get("date") == today and cache.get("fetched_at"):

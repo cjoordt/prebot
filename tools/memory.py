@@ -13,8 +13,10 @@ from __future__ import annotations
 import json
 import logging
 import os
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
+
+from utils import local_now
 
 import anthropic
 from dotenv import load_dotenv
@@ -173,7 +175,7 @@ def generate_weekly_memo(
 
     append_memo({
         "week_of": week_of,
-        "written_at": datetime.now().strftime("%Y-%m-%d"),
+        "written_at": local_now().strftime("%Y-%m-%d"),
         "memo": memo_text,
     })
 
@@ -220,7 +222,7 @@ def update_athlete_profile(
     profile_text = response.content[0].text.strip()
 
     save_profile({
-        "last_updated": datetime.now().strftime("%Y-%m-%d"),
+        "last_updated": local_now().strftime("%Y-%m-%d"),
         "profile": profile_text,
     })
     logger.info("Athlete profile updated.")

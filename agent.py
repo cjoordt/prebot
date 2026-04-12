@@ -18,6 +18,8 @@ import os
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from utils import local_now
+
 import anthropic
 from dotenv import load_dotenv
 
@@ -63,7 +65,7 @@ def _format_plan_summary(plan: dict | None) -> str:
     if not plan:
         return "No plan for this week yet."
 
-    today_key = datetime.now().strftime("%a").lower()[:3]
+    today_key = local_now().strftime("%a").lower()[:3]
     days = plan.get("days", {})
     target_elev = plan.get("target_elevation_ft", "?")
     elev_str = f"{int(target_elev):,}ft" if isinstance(target_elev, (int, float)) else str(target_elev)
@@ -143,7 +145,7 @@ def _format_todays_strava(activities: list[dict]) -> str:
 
 def _format_calendar_summary(schedule: dict[str, str]) -> str:
     lines = []
-    today_str = datetime.now().strftime("%Y-%m-%d")
+    today_str = local_now().strftime("%Y-%m-%d")
     for date_str, tag in sorted(schedule.items()):
         day_name = datetime.strptime(date_str, "%Y-%m-%d").strftime("%a")
         marker = " ← today" if date_str == today_str else ""
@@ -153,7 +155,7 @@ def _format_calendar_summary(schedule: dict[str, str]) -> str:
 
 def _compute_weekly_vert_actual(activities: list[dict]) -> int:
     """Sum elevation gain in feet for the current calendar week (Mon–Sun)."""
-    today = datetime.now().date()
+    today = local_now().date()
     monday = today - timedelta(days=today.weekday())
     week_start = monday.strftime("%Y-%m-%d")
     total_meters = sum(
@@ -207,7 +209,7 @@ def build_context_block() -> str:
     return (
         "---\n"
         "## Live Context (updated each message)\n\n"
-        f"**Date:** {datetime.now().strftime('%A, %B %d %Y')}\n\n"
+        f"**Date:** {local_now().strftime('%A, %B %d %Y')}\n\n"
         f"**Athlete profile:**\n{format_profile_for_context()}\n\n"
         f"**Recent weekly memos:**\n{format_recent_memos_for_context()}\n\n"
         f"**Upcoming races:**\n{format_races_for_context()}\n\n"
@@ -328,7 +330,7 @@ async def run_evening_checkin() -> str:
     """
     Build and send the evening check-in message.
     """
-    today_key = datetime.now().strftime("%a").lower()[:3]
+    today_key = local_now().strftime("%a").lower()[:3]
     plan = load_plan()
     today_plan = plan.get("days", {}).get(today_key, {}) if plan else {}
     planned_type = today_plan.get("type", "rest")
@@ -354,7 +356,7 @@ async def run_evening_checkin() -> str:
     )
 
     checkin_prompt = template.format(
-        date=datetime.now().strftime("%A, %B %d"),
+        date=local_now().strftime("%A, %B %d"),
         planned_workout=planned_str,
         activity_logged="yes" if activity_logged else "no",
         todays_activity=todays_activity_str,
@@ -379,7 +381,7 @@ async def run_missed_workout_flow(planned_workout: dict) -> str:
     template = (PROMPTS_DIR / "missed_workout.txt").read_text()
 
     plan = load_plan()
-    today_key = datetime.now().strftime("%a").lower()[:3]
+    today_key = local_now().strftime("%a").lower()[:3]
     day_order = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
     today_idx = day_order.index(today_key) if today_key in day_order else 0
 
@@ -393,7 +395,7 @@ async def run_missed_workout_flow(planned_workout: dict) -> str:
     fatigue = calculate_fatigue(recent_activities)
 
     missed_prompt = template.format(
-        date=datetime.now().strftime("%A, %B %d"),
+        date=local_now().strftime("%A, %B %d"),
         missed_workout=(
             f"{planned_workout.get('type', 'run')} "
             f"{planned_workout.get('miles', '')}mi".strip()
@@ -458,7 +460,7 @@ async def run_post_activity_checkin(activity: dict) -> str:
     name = activity.get("name", "that run")
 
     # Pull prescribed workout type for context
-    today_key = datetime.now().strftime("%a").lower()[:3]
+    today_key = local_now().strftime("%a").lower()[:3]
     plan = load_plan()
     today_plan = plan.get("days", {}).get(today_key, {}) if plan else {}
     prescribed_type = today_plan.get("type", "")
@@ -497,7 +499,7 @@ async def handle_post_activity_reply(user_text: str) -> str:
     )
 
     plan = load_plan()
-    today_key = datetime.now().strftime("%a").lower()[:3]
+    today_key = local_now().strftime("%a").lower()[:3]
     day_order = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
     today_idx = day_order.index(today_key) if today_key in day_order else 0
     remaining = {

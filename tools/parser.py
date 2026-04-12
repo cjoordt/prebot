@@ -10,8 +10,9 @@ from __future__ import annotations
 import json
 import logging
 import os
-from datetime import datetime
 from pathlib import Path
+
+from utils import local_now
 
 import anthropic
 from dotenv import load_dotenv
@@ -46,7 +47,7 @@ def save_log(entries: list[dict]) -> None:
 def append_log_entry(entry: dict) -> None:
     entries = load_log()
     # Replace today's entry if it already exists
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = local_now().strftime("%Y-%m-%d")
     entries = [e for e in entries if e.get("date") != today]
     entries.append(entry)
     save_log(entries)
@@ -67,7 +68,7 @@ def parse_checkin_reply(user_text: str, date: str | None = None) -> dict:
 
     Returns the parsed dict AND appends it to activity_log.json.
     """
-    today = date or datetime.now().strftime("%Y-%m-%d")
+    today = date or local_now().strftime("%Y-%m-%d")
 
     prompt = (
         "Extract wellness metrics from this athlete check-in message. "
@@ -110,7 +111,7 @@ def parse_checkin_reply(user_text: str, date: str | None = None) -> dict:
 
 def get_todays_log() -> dict | None:
     """Return today's activity log entry, if it exists."""
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = local_now().strftime("%Y-%m-%d")
     for entry in load_log():
         if entry.get("date") == today:
             return entry

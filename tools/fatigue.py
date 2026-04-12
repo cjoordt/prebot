@@ -17,7 +17,9 @@ Spec:
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
+
+from utils import local_now
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +44,7 @@ def _build_daily_loads(activities: list[dict], num_days: int) -> list[float]:
     chronological list of daily loads covering the last `num_days` days.
     Days with no activity get load = 0.
     """
-    today = datetime.now().date()
+    today = local_now().date()
     loads_by_date: dict[str, float] = {}
 
     for act in activities:

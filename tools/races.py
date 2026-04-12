@@ -16,6 +16,8 @@ import os
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from utils import local_now
+
 import anthropic
 from dotenv import load_dotenv
 
@@ -90,7 +92,7 @@ def save_races(races: list[dict]) -> None:
 
 def get_upcoming_races() -> list[dict]:
     """Return all races with future dates, sorted by date ascending."""
-    today = datetime.now().date().isoformat()
+    today = local_now().date().isoformat()
     races = [r for r in load_races() if r.get("date", "") >= today]
     return sorted(races, key=lambda r: r["date"])
 
@@ -121,7 +123,7 @@ def calculate_phase(race_date_str: str) -> dict:
         }
     """
     race_date = datetime.strptime(race_date_str, "%Y-%m-%d").date()
-    today = datetime.now().date()
+    today = local_now().date()
     days_to_race = (race_date - today).days
     weeks_to_race = days_to_race / 7.0
 
@@ -215,7 +217,7 @@ def parse_race_intent(user_text: str) -> dict | None:
         "remove" — user is dropping a race
         "none"   — message is not race management
     """
-    today_str = datetime.now().strftime("%Y-%m-%d")
+    today_str = local_now().strftime("%Y-%m-%d")
     prompt = (
         "You are a race data extractor for a running coach bot. Analyze this message "
         "from an athlete and determine if it is about managing their race calendar.\n\n"
@@ -328,7 +330,7 @@ def log_race_result(name_query: str, result: dict) -> bool:
         if name_lower in race["name"].lower():
             races[i]["result"] = {
                 **result,
-                "logged_at": datetime.now().strftime("%Y-%m-%d"),
+                "logged_at": local_now().strftime("%Y-%m-%d"),
             }
             save_races(races)
             logger.info(f"Race result logged: {race['name']}")
@@ -350,7 +352,7 @@ def format_races_for_context() -> str:
     lines = []
     for race in upcoming:
         weeks_to = (
-            datetime.strptime(race["date"], "%Y-%m-%d").date() - datetime.now().date()
+            datetime.strptime(race["date"], "%Y-%m-%d").date() - local_now().date()
         ).days / 7
         priority = race.get("priority", "A")
         dist = race.get("distance_miles", "?")

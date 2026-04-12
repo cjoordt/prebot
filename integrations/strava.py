@@ -231,7 +231,8 @@ def fetch_recent_activities(weeks: int = 4, force_refresh: bool = False) -> list
 
 def get_today_activities() -> list[dict]:
     """Return any activities logged today (uses cache, refreshes if stale)."""
-    today = datetime.now().strftime("%Y-%m-%d")
+    from utils import local_now
+    today = local_now().strftime("%Y-%m-%d")
     all_activities = fetch_recent_activities(force_refresh=True)
     return [a for a in all_activities if a["date"] == today]
 

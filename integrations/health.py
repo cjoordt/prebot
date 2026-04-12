@@ -9,8 +9,9 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime
 from pathlib import Path
+
+from utils import local_now
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ def load_health_log() -> list[dict]:
 def save_health_entry(entry: dict) -> None:
     """Upsert today's health entry."""
     entries = load_health_log()
-    date = entry.get("date", datetime.now().strftime("%Y-%m-%d"))
+    date = entry.get("date", local_now().strftime("%Y-%m-%d"))
     entries = [e for e in entries if e.get("date") != date]
     entries.append(entry)
     # Keep last 90 days only
@@ -39,7 +40,7 @@ def save_health_entry(entry: dict) -> None:
 
 
 def get_todays_health() -> dict | None:
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = local_now().strftime("%Y-%m-%d")
     for entry in load_health_log():
         if entry.get("date") == today:
             return entry

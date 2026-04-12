@@ -18,6 +18,8 @@ import os
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from utils import local_now
+
 import anthropic
 from dotenv import load_dotenv
 
@@ -113,7 +115,7 @@ def _compute_base_mileage(activities: list[dict], weeks: int = 4) -> tuple[float
     Compute actual weekly average and a modest target for next week.
     Returns (actual_weekly_avg, target_miles).
     """
-    today = datetime.now().date()
+    today = local_now().date()
     cutoff = today - timedelta(weeks=weeks)
 
     weekly_totals: dict[str, float] = {}
@@ -133,7 +135,7 @@ def _compute_base_mileage(activities: list[dict], weeks: int = 4) -> tuple[float
 
 
 def _next_monday() -> str:
-    today = datetime.now().date()
+    today = local_now().date()
     days_until_monday = (7 - today.weekday()) % 7 or 7
     return (today + timedelta(days=days_until_monday)).strftime("%Y-%m-%d")
 
