@@ -27,6 +27,7 @@ from tools.parser import parse_checkin_reply, get_todays_log
 from tools.planner import load_plan, adjust_plan, format_plan_for_telegram
 from integrations.health import get_todays_health, get_recent_health
 from tools.memory import format_profile_for_context, format_recent_memos_for_context
+from state import get_context, FLOW_POST_ACTIVITY_REPLY
 
 load_dotenv()
 
@@ -384,6 +385,81 @@ async def handle_missed_workout_reply(user_text: str) -> str:
     except Exception as e:
         logger.error(f"Plan adjustment failed: {e}")
         reply = await handle_message(user_text)
+
+    append_message(role="assistant", content=reply)
+    return reply
+
+
+async def run_post_activity_checkin(activity: dict) -> str:
+    """
+    Send a short "how did that feel?" message immediately after a new activity
+    is detected on Strava.
+    """
+    distance = activity.get("distance_miles", 0)
+    effort = activity.get("effort", "")
+    name = activity.get("name", "that run")
+
+    prompt = (
+        f"You are a running coach. Your athlete just logged a {distance:.1f}-mile "
+        f"{effort} run on Strava ({name}). "
+        "Send a single short message (under 30 words) asking how it felt. "
+        "Be specific to the run — reference the distance or effort type. "
+        "No bullet points. Just the message text."
+    )
+
+    reply = _call_claude(user_text=None, system_override=prompt, include_history=False)
+    append_message(role="assistant", content=reply)
+    return reply
+
+
+async def handle_post_activity_reply(user_text: str) -> str:
+    """
+    Process the athlete's response to a post-activity check-in.
+    If they report feeling bad or significantly off, adjust the remaining week.
+    Always respond conversationally.
+    """
+    activity = get_context().get("activity", {})
+    activity_desc = (
+        f"{activity.get('distance_miles', '?')}mi {activity.get('effort', '')} run"
+        if activity else "the run"
+    )
+
+    # Let Claude decide whether to adjust the plan based on the reply
+    plan = load_plan()
+    today_key = datetime.now().strftime("%a").lower()[:3]
+    day_order = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+    today_idx = day_order.index(today_key) if today_key in day_order else 0
+    remaining = {
+        k: v for k, v in (plan.get("days", {}) if plan else {}).items()
+        if day_order.index(k) > today_idx
+    }
+
+    assessment_prompt = (
+        "You are a running coach. Your athlete just completed a run and you asked how it felt. "
+        f"The run: {activity_desc}. "
+        f"Their response: \"{user_text}\"\n\n"
+        f"Remaining week plan: {json.dumps(remaining)}\n\n"
+        "Respond in under 60 words. Acknowledge what they said. "
+        "If they felt great or fine, affirm it and move on. "
+        "If they felt significantly fatigued, beat up, or mention pain — "
+        "briefly note you'll ease up the next session and state which day gets adjusted and how. "
+        "Never lecture. Be the calmest person in the conversation."
+    )
+
+    reply = _call_claude(user_text=None, system_override=assessment_prompt, include_history=False)
+
+    # If reply suggests adjustment, apply it silently
+    negative_signals = ["ease", "back off", "reduce", "cut", "adjust", "drop", "lighter"]
+    if any(s in reply.lower() for s in negative_signals):
+        try:
+            adjust_plan(
+                f"Athlete reported feeling: \"{user_text}\" after today's {activity_desc}. "
+                "Ease the next hard session slightly — reduce intensity or mileage by ~15%, "
+                "keep rest days as-is."
+            )
+            logger.info("Plan adjusted based on post-activity feedback.")
+        except Exception as e:
+            logger.warning(f"Post-activity plan adjustment failed: {e}")
 
     append_message(role="assistant", content=reply)
     return reply

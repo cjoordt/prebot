@@ -32,6 +32,7 @@ from agent import (
     handle_message,
     handle_checkin_reply,
     handle_missed_workout_reply,
+    handle_post_activity_reply,
 )
 from integrations.health import save_health_entry
 from scheduler import create_scheduler
@@ -41,6 +42,7 @@ from state import (
     FLOW_FREEFORM,
     FLOW_CHECKIN_REPLY,
     FLOW_MISSED_WORKOUT_REPLY,
+    FLOW_POST_ACTIVITY_REPLY,
 )
 
 load_dotenv()
@@ -115,6 +117,9 @@ async def on_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             set_flow(FLOW_FREEFORM)
         elif flow == FLOW_MISSED_WORKOUT_REPLY:
             reply = await handle_missed_workout_reply(user_text)
+            set_flow(FLOW_FREEFORM)
+        elif flow == FLOW_POST_ACTIVITY_REPLY:
+            reply = await handle_post_activity_reply(user_text)
             set_flow(FLOW_FREEFORM)
         else:
             reply = await handle_message(user_text)

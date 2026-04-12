@@ -119,23 +119,34 @@ async def job_strava_check(trigger_missed_if_no_activity: bool = False) -> None:
         planned_type = today_plan.get("type", "rest")
 
         if today_activities:
-            act = today_activities[0]
-            logger.info(
-                f"Activity found: {act['distance_miles']:.1f}mi | "
-                f"{act['effort']} | load {act['load']}"
-            )
+            from state import is_activity_seen, mark_activity_seen, set_flow, FLOW_POST_ACTIVITY_REPLY
+            from agent import run_post_activity_checkin
 
-            # Note significant deviations from plan (>20% off target miles)
-            planned_miles = today_plan.get("miles")
-            if planned_miles and planned_type not in ("rest",):
-                deviation = abs(act["distance_miles"] - planned_miles) / planned_miles
-                if deviation > 0.20:
-                    note = (
-                        f"Logged {act['distance_miles']:.1f}mi vs planned {planned_miles}mi — "
-                        f"noted, will factor in."
-                    )
-                    await send_message(note)
-                    append_message(role="assistant", content=note)
+            for act in today_activities:
+                logger.info(
+                    f"Activity found: {act['distance_miles']:.1f}mi | "
+                    f"{act['effort']} | load {act['load']}"
+                )
+
+                # Note significant deviations from plan (>20% off target miles)
+                planned_miles = today_plan.get("miles")
+                if planned_miles and planned_type not in ("rest",):
+                    deviation = abs(act["distance_miles"] - planned_miles) / planned_miles
+                    if deviation > 0.20:
+                        note = (
+                            f"Logged {act['distance_miles']:.1f}mi vs planned {planned_miles}mi — "
+                            f"noted, will factor in."
+                        )
+                        await send_message(note)
+                        append_message(role="assistant", content=note)
+
+                # Ask "how did that feel?" for any new activity
+                if not is_activity_seen(act["id"]):
+                    message = await run_post_activity_checkin(act)
+                    await send_message(message)
+                    mark_activity_seen(act["id"])
+                    set_flow(FLOW_POST_ACTIVITY_REPLY, context={"activity": act})
+                    break  # ask about one activity at a time
 
         elif trigger_missed_if_no_activity and planned_type not in ("rest",):
             logger.info("No activity logged by 7pm — triggering missed workout flow.")
