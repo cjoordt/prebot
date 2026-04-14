@@ -140,6 +140,20 @@ def _next_monday() -> str:
     return (today + timedelta(days=days_until_monday)).strftime("%Y-%m-%d")
 
 
+def current_monday() -> str:
+    """Return the Monday that started the current calendar week."""
+    today = local_now().date()
+    return (today - timedelta(days=today.weekday())).strftime("%Y-%m-%d")
+
+
+def plan_is_current() -> bool:
+    """Return True if a plan exists and covers the current week."""
+    plan = load_plan()
+    if not plan:
+        return False
+    return plan.get("week_of") == current_monday()
+
+
 # ---------------------------------------------------------------------------
 # Plan validation
 # ---------------------------------------------------------------------------
@@ -223,6 +237,7 @@ def generate_weekly_plan(
     recent_activities: list[dict],
     phase_context: dict | None = None,
     weather_forecast: list[dict] | None = None,
+    week_of: str | None = None,
 ) -> dict:
     """
     Generate a fresh weekly training plan via Claude.
@@ -275,7 +290,7 @@ def generate_weekly_plan(
         recommendation=fatigue["recommendation"],
         calendar=_format_calendar(schedule),
         recent_activities=_format_recent_activities(recent_activities),
-        week_of=_next_monday(),
+        week_of=week_of or current_monday(),
         actual_weekly_avg=actual_weekly_avg,
         target_miles=target_miles,
         target_elevation_ft=vert_target,

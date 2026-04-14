@@ -31,7 +31,13 @@ from integrations.calendar import fetch_week_schedule
 from integrations.weather import fetch_today_weather, format_weather_for_context
 from tools.fatigue import calculate_fatigue
 from tools.parser import parse_checkin_reply, get_todays_log
-from tools.planner import load_plan, adjust_plan, format_plan_for_telegram
+from tools.planner import (
+    load_plan,
+    adjust_plan,
+    format_plan_for_telegram,
+    generate_weekly_plan,
+    plan_is_current,
+)
 from integrations.health import get_todays_health, get_recent_health
 from tools.memory import (
     format_profile_for_context,
@@ -286,19 +292,19 @@ def _call_claude(
 # Race intent handling
 # ---------------------------------------------------------------------------
 
-def _try_handle_race_intent(user_text: str) -> None:
+def _try_handle_race_intent(user_text: str) -> bool:
     """
     Silently parse and apply any race management intent in the message.
-    Does nothing if the message is not race-related.
+    Returns True if a race was added (triggers plan regeneration).
     The actual conversational response comes from the main _call_claude() call,
     which will see the updated race context.
     """
     if not _looks_like_race_message(user_text):
-        return
+        return False
 
     intent_data = parse_race_intent(user_text)
     if not intent_data:
-        return
+        return False
 
     intent = intent_data.get("intent")
     try:
@@ -306,12 +312,53 @@ def _try_handle_race_intent(user_text: str) -> None:
             race = {k: v for k, v in intent_data.items() if k not in ("intent",) and v is not None}
             add_race(race)
             logger.info(f"Race added via message: {race.get('name')}")
+            return True
         elif intent == "update":
             update_race(intent_data.get("name", ""), intent_data.get("updates", {}))
         elif intent == "remove":
             remove_race(intent_data.get("name", ""))
     except Exception as e:
         logger.warning(f"Race intent handling failed: {e}")
+    return False
+
+
+_PLAN_TRIGGER_WORDS = {"plan", "schedule", "week", "workout", "training plan", "next week", "this week"}
+
+
+def _looks_like_plan_question(text: str) -> bool:
+    lower = text.lower()
+    return any(w in lower for w in _PLAN_TRIGGER_WORDS)
+
+
+def _ensure_plan() -> None:
+    """
+    Generate a plan for the current week if one doesn't exist.
+    Pulls all needed context inline. Runs synchronously — only called when necessary.
+    """
+    if plan_is_current():
+        return
+
+    logger.info("No current plan found — generating one now.")
+    try:
+        recent_activities = fetch_recent_activities(weeks=6)
+    except Exception as e:
+        logger.warning(f"Strava fetch for plan generation failed: {e}")
+        recent_activities = []
+
+    try:
+        schedule = fetch_week_schedule(days=7)
+    except Exception as e:
+        logger.warning(f"Calendar fetch for plan generation failed: {e}")
+        schedule = {}
+
+    fatigue = calculate_fatigue(recent_activities)
+    phase_ctx = get_phase_context()
+
+    try:
+        generate_weekly_plan(fatigue, schedule, recent_activities, phase_ctx)
+        logger.info("On-demand plan generated.")
+    except Exception as e:
+        logger.error(f"On-demand plan generation failed: {e}")
 
 
 # ---------------------------------------------------------------------------
@@ -333,9 +380,14 @@ async def handle_message(user_text: str) -> str:
     Main entry point for all incoming Telegram messages.
 
     Detects race management intent (silently saves data if found),
+    generates a training plan if one doesn't exist or a race was just added,
     then calls Claude with full context and returns the response.
     """
-    _try_handle_race_intent(user_text)
+    race_added = _try_handle_race_intent(user_text)
+
+    if race_added or (not plan_is_current() and _looks_like_plan_question(user_text)):
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, _ensure_plan)
 
     reply = _call_claude(user_text)
     append_message(role="assistant", content=reply)

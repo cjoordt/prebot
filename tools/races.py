@@ -65,6 +65,9 @@ RACE_KEYWORDS = {
     "race", "50k", "50-k", "marathon", "25k", "100k", "100 mile", "50 mile",
     "miler", "ultra", "signed up", "registered", "new race", "drop the race",
     "not doing", "remove race", "cancel race", "upcoming race",
+    "training for", "signed up for", "doing the", "running the",
+    "entered", "entering", "i got in", "got into", "trail run",
+    "wonder", "gorge", "spartan", "ragnar", "skyrace", "vertical k",
 }
 
 
