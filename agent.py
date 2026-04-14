@@ -132,7 +132,7 @@ def _format_recent_activities(activities: list[dict]) -> str:
         sport = act.get("effort", "")
         lines.append(
             f"  {act['date']} — {act['distance_miles']:.1f}mi | {sport}"
-            + (f" | {act.get('elevation_gain_meters', 0):.0f}m gain" if act.get('elevation_gain_meters') else "")
+            + (f" | {act.get('elevation_gain_meters', 0) * 3.28084:.0f}ft gain" if act.get('elevation_gain_meters') else "")
             + (f" | HR {act['average_heartrate']:.0f}" if act.get("average_heartrate") else "")
         )
     total_miles = sum(a["distance_miles"] for a in activities)
@@ -149,7 +149,7 @@ def _format_todays_strava(activities: list[dict]) -> str:
     for act in activities:
         parts.append(
             f"{act['distance_miles']:.1f}mi | {act['effort']} effort | "
-            f"gain {act.get('elevation_gain_meters', 0):.0f}m"
+            f"gain {act.get('elevation_gain_meters', 0) * 3.28084:.0f}ft"
             + (f" | HR {act['average_heartrate']:.0f}" if act.get("average_heartrate") else "")
         )
     return "\n".join(parts)

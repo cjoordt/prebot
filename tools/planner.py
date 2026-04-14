@@ -85,7 +85,7 @@ def _format_recent_activities(activities: list[dict]) -> str:
         lines.append(
             f"  {act['date']} — {act['distance_miles']:.1f}mi "
             f"| {act['effort']} | load {act['load']} "
-            f"| gain {act.get('elevation_gain_meters', 0):.0f}m"
+            f"| gain {act.get('elevation_gain_meters', 0) * 3.28084:.0f}ft"
             + (f" | HR {act['average_heartrate']:.0f}" if act.get("average_heartrate") else "")
         )
     return "\n".join(lines)

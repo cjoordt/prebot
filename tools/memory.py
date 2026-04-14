@@ -338,7 +338,7 @@ def generate_weekly_memo(
 
     activity_summary = "\n".join(
         f"  {a['date']} — {a['distance_miles']:.1f}mi | {a['effort']}"
-        + (f" | {a.get('elevation_gain_meters',0):.0f}m gain" if a.get('elevation_gain_meters') else "")
+        + (f" | {a.get('elevation_gain_meters',0) * 3.28084:.0f}ft gain" if a.get('elevation_gain_meters') else "")
         for a in activities
     ) or "  No activities logged."
 
