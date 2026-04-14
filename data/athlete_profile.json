@@ -1,1 +1,28 @@
-{"last_updated": null, "profile": "No profile built yet — will develop after first full week of data."}
+{
+  "last_updated": null,
+  "profile": "No profile built yet — will develop after first full week of data.",
+  "facts": {
+    "personal": {
+      "name": null,
+      "age": null,
+      "weight_lbs": null,
+      "family_context": null
+    },
+    "race": {
+      "name": null,
+      "date": null,
+      "distance_miles": null,
+      "elevation_gain_ft": null,
+      "course_type": null
+    },
+    "training": {
+      "weekly_mileage_target": null,
+      "preferences": []
+    },
+    "injuries": [],
+    "last_week": {
+      "planned_miles": null,
+      "actual_miles": null
+    }
+  }
+}

@@ -12,6 +12,7 @@ Assembles full context and handles all message types:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -31,7 +32,11 @@ from tools.fatigue import calculate_fatigue
 from tools.parser import parse_checkin_reply, get_todays_log
 from tools.planner import load_plan, adjust_plan, format_plan_for_telegram
 from integrations.health import get_todays_health, get_recent_health
-from tools.memory import format_profile_for_context, format_recent_memos_for_context
+from tools.memory import (
+    format_profile_for_context,
+    format_recent_memos_for_context,
+    extract_and_update_facts,
+)
 from tools.races import (
     format_races_for_context,
     format_phase_for_context,
@@ -309,6 +314,16 @@ def _try_handle_race_intent(user_text: str) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Background fact extraction
+# ---------------------------------------------------------------------------
+
+async def _extract_facts_bg(user_text: str, assistant_text: str) -> None:
+    """Fire-and-forget: extract memorable facts from one exchange and save to profile."""
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, extract_and_update_facts, user_text, assistant_text)
+
+
+# ---------------------------------------------------------------------------
 # Public workflows
 # ---------------------------------------------------------------------------
 
@@ -323,6 +338,7 @@ async def handle_message(user_text: str) -> str:
 
     reply = _call_claude(user_text)
     append_message(role="assistant", content=reply)
+    asyncio.create_task(_extract_facts_bg(user_text, reply))
     return reply
 
 
@@ -534,6 +550,7 @@ async def handle_post_activity_reply(user_text: str) -> str:
             logger.warning(f"Post-activity plan adjustment failed: {e}")
 
     append_message(role="assistant", content=reply)
+    asyncio.create_task(_extract_facts_bg(user_text, reply))
     return reply
 
 
@@ -575,4 +592,5 @@ async def handle_race_result_reply(user_text: str) -> str:
     # Claude responds naturally — context block now shows post_race phase
     reply = _call_claude(user_text)
     append_message(role="assistant", content=reply)
+    asyncio.create_task(_extract_facts_bg(user_text, reply))
     return reply
