@@ -13,6 +13,7 @@ Assembles full context and handles all message types:
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import logging
 import os
@@ -593,4 +594,53 @@ async def handle_race_result_reply(user_text: str) -> str:
     reply = _call_claude(user_text)
     append_message(role="assistant", content=reply)
     asyncio.create_task(_extract_facts_bg(user_text, reply))
+    return reply
+
+
+async def handle_image_message(image_bytes: bytes, mime_type: str, caption: str | None) -> str:
+    """
+    Process an image sent by the athlete (e.g. a Coros sleep screenshot).
+    Sends the image to Claude with full coaching context so it can interpret
+    the data and respond as a coach.
+    """
+    system_prompt = (PROMPTS_DIR / "system.txt").read_text()
+    context = build_context_block()
+    full_system = f"{system_prompt}\n\n{context}"
+
+    # Build the user content block: image + optional caption / default prompt
+    user_content_text = caption if caption else (
+        "I sent you a screenshot — what does it show and what does it mean for my training?"
+    )
+
+    image_b64 = base64.standard_b64encode(image_bytes).decode("utf-8")
+
+    messages = _get_history_messages()
+    messages.append({
+        "role": "user",
+        "content": [
+            {
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": mime_type,
+                    "data": image_b64,
+                },
+            },
+            {"type": "text", "text": user_content_text},
+        ],
+    })
+
+    response = client.messages.create(
+        model=MODEL,
+        max_tokens=400,
+        system=full_system,
+        messages=messages,
+    )
+    reply = response.content[0].text.strip()
+
+    # Log as text so future history makes sense without re-sending the image
+    log_text = f"[Image: {caption}]" if caption else "[Image sent]"
+    append_message(role="user", content=log_text)
+    append_message(role="assistant", content=reply)
+    asyncio.create_task(_extract_facts_bg(log_text, reply))
     return reply

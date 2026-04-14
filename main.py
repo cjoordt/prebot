@@ -34,6 +34,7 @@ from agent import (
     handle_missed_workout_reply,
     handle_post_activity_reply,
     handle_race_result_reply,
+    handle_image_message,
 )
 from integrations.health import save_health_entry
 from scheduler import create_scheduler
@@ -102,6 +103,26 @@ async def handle_ping(request: web.Request) -> web.Response:
 # Telegram handlers
 # ---------------------------------------------------------------------------
 
+async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if CHAT_ID and str(update.message.chat_id) != str(CHAT_ID):
+        return
+
+    photo = update.message.photo[-1]  # highest resolution
+    caption = update.message.caption or None
+
+    logger.info(f"Incoming photo: file_id={photo.file_id} caption={caption!r}")
+
+    try:
+        tg_file = await photo.get_file()
+        image_bytes = await tg_file.download_as_bytearray()
+        reply = await handle_image_message(bytes(image_bytes), "image/jpeg", caption)
+    except Exception as e:
+        logger.exception(f"Image handling error: {e}")
+        reply = "Had trouble reading that image — try again or describe what it shows."
+
+    await update.message.reply_text(reply)
+
+
 async def on_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if CHAT_ID and str(update.message.chat_id) != str(CHAT_ID):
         logger.warning(f"Ignoring message from unknown chat: {update.message.chat_id}")
@@ -165,6 +186,7 @@ async def run() -> None:
     )
     telegram_app.add_handler(CommandHandler("status", on_status))
     telegram_app.add_handler(CommandHandler("reset", on_reset))
+    telegram_app.add_handler(MessageHandler(filters.PHOTO, on_photo))
     telegram_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_message))
 
     # --- aiohttp web server ---
