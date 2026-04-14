@@ -274,6 +274,26 @@ def format_profile_for_context() -> str:
         lines.insert(0, "  [Confirmed facts]")
         lines.append("")
 
+    # --- Gaps (shown so Claude knows what to ask about) ---
+    gaps = []
+    if not race.get("name"):
+        gaps.append("target race name")
+    if not race.get("date"):
+        gaps.append("race date")
+    if not race.get("distance_miles"):
+        gaps.append("race distance")
+    if not race.get("elevation_gain_ft"):
+        gaps.append("race elevation gain")
+    if not training.get("weekly_mileage_target"):
+        gaps.append("weekly mileage target")
+    if not personal.get("age"):
+        gaps.append("athlete age")
+    if not personal.get("weight_lbs"):
+        gaps.append("athlete weight")
+    if gaps:
+        lines.append(f"  [Profile gaps — ask about one per conversation: {', '.join(gaps)}]")
+        lines.append("")
+
     # --- Narrative profile (monthly synthesis) ---
     if profile:
         lines.append(f"  [Coaching profile — last updated {updated}]")
