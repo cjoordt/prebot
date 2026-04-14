@@ -58,7 +58,7 @@ logger = logging.getLogger(__name__)
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 MODEL = "claude-opus-4-5"
-MAX_HISTORY_MESSAGES = 20
+MAX_HISTORY_MESSAGES = 40
 
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
@@ -384,7 +384,6 @@ async def run_evening_checkin() -> str:
     reply = _call_claude(
         user_text=None,
         system_override=checkin_prompt,
-        include_history=False,
     )
 
     append_message(role="assistant", content=reply)
@@ -426,7 +425,6 @@ async def run_missed_workout_flow(planned_workout: dict) -> str:
     reply = _call_claude(
         user_text=None,
         system_override=missed_prompt,
-        include_history=False,
     )
 
     append_message(role="assistant", content=reply)
@@ -499,7 +497,7 @@ async def run_post_activity_checkin(activity: dict) -> str:
         "No bullet points. Just the message text."
     )
 
-    reply = _call_claude(user_text=None, system_override=prompt, include_history=False)
+    reply = _call_claude(user_text=None, system_override=prompt, include_history=True)
     append_message(role="assistant", content=reply)
     return reply
 
@@ -536,7 +534,7 @@ async def handle_post_activity_reply(user_text: str) -> str:
         "Never lecture. Be the calmest person in the conversation."
     )
 
-    reply = _call_claude(user_text=None, system_override=assessment_prompt, include_history=False)
+    reply = _call_claude(user_text=None, system_override=assessment_prompt, include_history=True)
 
     negative_signals = ["ease", "back off", "reduce", "cut", "adjust", "drop", "lighter"]
     if any(s in reply.lower() for s in negative_signals):
@@ -570,7 +568,7 @@ async def run_post_race_checkin(race: dict) -> str:
         "time, how they felt, anything to note. Warm and curious, not clinical."
     )
 
-    reply = _call_claude(user_text=None, system_override=prompt, include_history=False)
+    reply = _call_claude(user_text=None, system_override=prompt, include_history=True)
     append_message(role="assistant", content=reply)
     return reply
 
