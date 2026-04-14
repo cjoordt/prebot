@@ -371,6 +371,40 @@ def _ensure_plan() -> None:
         logger.error(f"On-demand plan generation failed: {e}")
 
 
+async def generate_plan_on_demand() -> str:
+    """
+    Force-generate a fresh plan for the current week and return it
+    formatted for Telegram. Called by the /plan command.
+    """
+    try:
+        recent_activities = fetch_recent_activities(weeks=6)
+    except Exception as e:
+        logger.warning(f"Strava fetch failed for /plan: {e}")
+        recent_activities = []
+
+    try:
+        schedule = fetch_week_schedule(days=7)
+    except Exception as e:
+        logger.warning(f"Calendar fetch failed for /plan: {e}")
+        schedule = {}
+
+    try:
+        weather = fetch_today_weather()
+    except Exception as e:
+        logger.warning(f"Weather fetch failed for /plan: {e}")
+        weather = {}
+
+    fatigue = calculate_fatigue(recent_activities)
+    phase_ctx = get_phase_context()
+
+    loop = asyncio.get_event_loop()
+    plan = await loop.run_in_executor(
+        None,
+        lambda: generate_weekly_plan(fatigue, schedule, recent_activities, phase_ctx),
+    )
+    return format_plan_for_telegram(plan)
+
+
 # ---------------------------------------------------------------------------
 # Background fact extraction
 # ---------------------------------------------------------------------------

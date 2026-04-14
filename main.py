@@ -35,6 +35,7 @@ from agent import (
     handle_post_activity_reply,
     handle_race_result_reply,
     handle_image_message,
+    generate_plan_on_demand,
 )
 from integrations.health import save_health_entry
 from scheduler import create_scheduler
@@ -156,6 +157,18 @@ async def on_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     await update.message.reply_text(reply)
 
 
+async def on_plan(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if CHAT_ID and str(update.message.chat_id) != str(CHAT_ID):
+        return
+    await update.message.reply_text("Building your plan — give me a moment...")
+    try:
+        plan_text = await generate_plan_on_demand()
+    except Exception as e:
+        logger.exception(f"/plan error: {e}")
+        plan_text = "Something went wrong generating your plan. Try again in a minute."
+    await update.message.reply_text(plan_text)
+
+
 async def on_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     flow = get_flow()
     scheduler = context.application.bot_data.get("scheduler")
@@ -184,6 +197,7 @@ async def run() -> None:
         .token(BOT_TOKEN)
         .build()
     )
+    telegram_app.add_handler(CommandHandler("plan", on_plan))
     telegram_app.add_handler(CommandHandler("status", on_status))
     telegram_app.add_handler(CommandHandler("reset", on_reset))
     telegram_app.add_handler(MessageHandler(filters.PHOTO, on_photo))
