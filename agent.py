@@ -58,6 +58,16 @@ from tools.races import (
 )
 from state import get_context, FLOW_POST_ACTIVITY_REPLY
 
+# Hold strong references to background tasks so the GC doesn't destroy them
+# before they complete. Tasks remove themselves when done.
+_background_tasks: set[asyncio.Task] = set()
+
+
+def _fire_and_forget(coro) -> None:
+    task = asyncio.create_task(coro)
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
+
 load_dotenv()
 
 logger = logging.getLogger(__name__)
@@ -391,7 +401,7 @@ async def handle_message(user_text: str) -> str:
 
     reply = _call_claude(user_text)
     append_message(role="assistant", content=reply)
-    asyncio.create_task(_extract_facts_bg(user_text, reply))
+    _fire_and_forget(_extract_facts_bg(user_text, reply))
     return reply
 
 
@@ -601,7 +611,7 @@ async def handle_post_activity_reply(user_text: str) -> str:
             logger.warning(f"Post-activity plan adjustment failed: {e}")
 
     append_message(role="assistant", content=reply)
-    asyncio.create_task(_extract_facts_bg(user_text, reply))
+    _fire_and_forget(_extract_facts_bg(user_text, reply))
     return reply
 
 
@@ -643,7 +653,7 @@ async def handle_race_result_reply(user_text: str) -> str:
     # Claude responds naturally — context block now shows post_race phase
     reply = _call_claude(user_text)
     append_message(role="assistant", content=reply)
-    asyncio.create_task(_extract_facts_bg(user_text, reply))
+    _fire_and_forget(_extract_facts_bg(user_text, reply))
     return reply
 
 
@@ -692,5 +702,5 @@ async def handle_image_message(image_bytes: bytes, mime_type: str, caption: str 
     log_text = f"[Image: {caption}]" if caption else "[Image sent]"
     append_message(role="user", content=log_text)
     append_message(role="assistant", content=reply)
-    asyncio.create_task(_extract_facts_bg(log_text, reply))
+    _fire_and_forget(_extract_facts_bg(log_text, reply))
     return reply
